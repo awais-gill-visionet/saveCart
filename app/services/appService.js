@@ -1,7 +1,4 @@
 const fetch = require('node-fetch');
-const { authenticate } = require('../controllers/appController');
-const crypto = require('crypto');
-const { productUsed } = require('../../../compliance-project/shopify-service/internalServices/compliancePublicApi');
 const apiKey = process.env.SHOPIFY_API_KEY;
 const apiSecret = process.env.SHOPIFY_API_SECRET;
 const store_url = process.env.STORE_URL;
