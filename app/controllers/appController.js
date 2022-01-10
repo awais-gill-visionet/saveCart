@@ -69,13 +69,28 @@ const appController = {
      * @returns {Promise<*>}
      */
      saveCart: async (req, res) => {
-        res.status(200).send('ok');
         try {
             let saveCart = await appService.saveCart(req);
-            console.log(saveCart)
+            return helper.apiResponse(res, false, "Cart saved successfully", saveCart);
         }
         catch (error) {
-            console.log(error)
+            return helper.apiResponse(res, true, error.message, null, error.statusCode);
+        }
+    },
+
+    /**
+     * @param req
+     * @param res
+     * @returns {Promise<*>}
+     */
+     clearCart: async (req, res) => {
+        res.status(200).send('ok');
+        try {
+            let clearCart = await appService.clearCart(req);
+            console.log(clearCart);
+        }
+        catch (error) {
+            console.log(error);
         }
     },
 }

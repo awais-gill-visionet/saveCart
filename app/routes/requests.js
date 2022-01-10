@@ -19,6 +19,9 @@ router.route('/tag/updateCustomer')
 router.route('/webhook/saveCart')
     .post(appController.saveCart);
 
+router.route('/webhook/clearCart')
+    .post(appController.clearCart);
+
 module.exports = {
     router: router,
     basePath: 'milly'

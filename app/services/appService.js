@@ -1,7 +1,9 @@
+const crypto = require('crypto');
 const fetch = require('node-fetch');
 const apiKey = process.env.SHOPIFY_API_KEY;
 const apiSecret = process.env.SHOPIFY_API_SECRET;
 const store_url = process.env.STORE_URL;
+const webhookSecret = process.env.WEBHOOK_SECRET;
 
 const appService = {
 
@@ -24,18 +26,17 @@ const appService = {
 
     tagCustomers: async (req, res) => {
         let response = [];
-        //let orders = [400096003,400096007,400096010,400096013,400096014,400096020,400096022,400096023,400096026,400096029,400096036,400096037,400096038,400096041,400096055,400096060,400096063,400096077,400096079,400096080,400096082,400096086,400096091,400096096,400096099,400096100,400096101,400096106,400096107,400096108,400096110,400096114,400096115,400096118,400096120,400096122,400096135,400096137,400096138,400096150,400096153,400096154,400096158,400096167,400096168,400096170,400096172,400096173,400096175];
-        let orders = [400096003];
+        let orders = [];
         for(let j=0; j<orders.length; j++) {
             console.log(orders[j]);
             let getOrder = await appService.getOrder(orders[j]);
-            let tags = getOrder.orders[0].customer.tags+', March 2021 DM, S21 DM - BUYER';
-            let updateCustomer = await appService.updateCustomer(getOrder.orders[0].customer.id, tags);
+            let tags = getOrder.orders[0].customer.tags+', March 2021 DM, S21 DM - EXTERNAL PROSPECT';
+            //let updateCustomer = await appService.updateCustomer(getOrder.orders[0].customer.id, tags);
             response.push({
                 'id': getOrder.orders[0].id,
                 'name': getOrder.orders[0].name,
-                'customer_id': updateCustomer.customer.id,
-                'tags': updateCustomer.customer.tags
+                'customer_id':getOrder.orders[0].customer.id,
+                'tags': tags
             });
         }
 
@@ -98,13 +99,79 @@ const appService = {
      * @param res
      * @returns {Promise<*>}
      */
+     getCust: async (customer_id) => {
+        let _URL = `https://${apiKey}:${apiSecret}@${store_url}/admin/api/2021-10/customers/${customer_id}.json`;
+        return await ((await fetch(_URL, {
+            method: 'GET',
+            headers: {
+                'Content-Type': 'application/json'
+            }
+        })).json());
+    },
+
+    /**
+     * @param req
+     * @param res
+     * @returns {Promise<*>}
+     */
      saveCart: async (req) => {
+        let customer_id = req.body.cust_id;
+        let line_items  = req.body.line_items;
+        let get_cust = await appService.getCust(customer_id);
+        let tags = get_cust.customer.tags;
+        let splitTags = tags.split(", ");
+        let carTags = [];
+        
+        let filteredTags = splitTags.filter(function(val) {
+            return !val.includes('line_item:');
+        });
+
+        for(let i=0; i<line_items.length; i++) {
+            carTags.push('line_item:'+line_items[i].id+':'+line_items[i].quantity);
+        }
+
+        let appendTags = carTags.join(",");
+
+        let newTags = filteredTags ? filteredTags+','+appendTags : appendTags;
+
+        let updateCustomer = await appService.updateCustomer(customer_id, newTags);
+        
+        return updateCustomer;
+    },
+
+    /**
+     * @param req
+     * @param res
+     * @returns {Promise<*>}
+     */
+     clearCart: async (req) => {
         const verified = await appService.verifyWebhook(req);
         if(verified == true) {
             const data = JSON.stringify(req.body);
-            const product = JSON.parse(data);
-            return product;
+            const order = JSON.parse(data);
+            let tags = order.customer.tags;
+            let splitTags = tags.split(", ");
+            let filteredTags = splitTags.filter(function(val) {
+                return !val.includes('line_item:');
+            });
+
+            let updateCustomer = await appService.updateCustomer(order.customer.id, filteredTags);
+            return filteredTags;
         }
+    },
+
+    /**
+     * @param req
+     * @returns {Promise<*>}
+     */
+     verifyWebhook: async (req) => {
+        const hmac = req.header("X-Shopify-Hmac-Sha256");
+        const message = req.rawBody;
+        const genHash = crypto
+        .createHmac("sha256", webhookSecret)
+        .update(message, 'utf8', 'hex')
+        .digest("base64");
+        return genHash === hmac;
     },
 }
 
